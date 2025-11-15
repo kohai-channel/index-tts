@@ -62,7 +62,8 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--byte-fallback",
         action="store_true",
-        help="Enable byte fallback to avoid <unk> for unseen characters.",
+        default=False,
+        help="Enable byte fallback to avoid <unk> for unseen characters (Do not enable unless you know what you're doing)",
     )
     return parser.parse_args()
 
