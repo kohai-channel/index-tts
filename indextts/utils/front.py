@@ -17,6 +17,7 @@ class TextNormalizer:
     def __init__(self, preferred_language: str | None = None):
         self.zh_normalizer = None
         self.en_normalizer = None
+        self._es_normalizer = None
         self.preferred_language = preferred_language.lower() if preferred_language else None
         self.char_rep_map = {
             "：": ",",
@@ -98,6 +99,11 @@ class TextNormalizer:
         return has_pinyin
 
     def load(self):
+        # For Spanish-only usage, skip loading zh/en normalizers
+        # (avoids WeTextProcessing/pynini version conflict with nemo-text-processing)
+        if self.preferred_language == "es":
+            self._ensure_es_normalizer()
+            return
         # print(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
         # sys.path.append(model_dir)
         import platform
@@ -144,6 +150,32 @@ class TextNormalizer:
         if any(ch in text for ch in ("々", "〆", "ゝ", "ゞ", "ゝ", "ゞ", "ー")):
             return True
         return False
+
+    _ES_NEMO_CACHE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "nemo_es_cache")
+
+    def _ensure_es_normalizer(self) -> None:
+        if self._es_normalizer is not None:
+            return
+        from nemo_text_processing.text_normalization.normalize import Normalizer
+        os.makedirs(self._ES_NEMO_CACHE_DIR, exist_ok=True)
+        self._es_normalizer = Normalizer(
+            input_case="cased", lang="es", cache_dir=self._ES_NEMO_CACHE_DIR
+        )
+
+    def normalize_spanish(self, text: str) -> str:
+        if not text:
+            return ""
+        text = unicodedata.normalize("NFKC", text)
+        text = re.sub(r"\s+", " ", text).strip()
+        if not text:
+            return ""
+        self._ensure_es_normalizer()
+        try:
+            text = self._es_normalizer.normalize(text, verbose=False)
+        except Exception:
+            print(traceback.format_exc())
+        text = self._base_cleanup_pattern.sub(lambda x: self.char_rep_map[x.group()], text)
+        return text
 
     def normalize_japanese(self, text: str) -> str:
         text = text.strip()
@@ -195,6 +227,9 @@ class TextNormalizer:
                 return self._basic_cleanup(text_processed)
             result = self._base_cleanup_pattern.sub(lambda x: self.char_rep_map[x.group()], result)
             return result
+
+        if lang == "es":
+            return self.normalize_spanish(text)
 
         return self._basic_cleanup(text)
 

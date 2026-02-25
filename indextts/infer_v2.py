@@ -167,9 +167,10 @@ class IndexTTS2:
         print(">> bigvgan weights restored from:", bigvgan_name)
 
         self.bpe_path = os.path.join(self.model_dir, self.cfg.dataset["bpe_model"])
-        self.normalizer = TextNormalizer()
+        preferred_language = getattr(self.cfg, "language", None)
+        self.normalizer = TextNormalizer(preferred_language=preferred_language)
         self.normalizer.load()
-        print(">> TextNormalizer loaded")
+        print(f">> TextNormalizer loaded (language={preferred_language or 'auto'})")
         self.tokenizer = TextTokenizer(self.bpe_path, self.normalizer)
         print(">> bpe model loaded from:", self.bpe_path)
 
