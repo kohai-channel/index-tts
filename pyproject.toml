@@ -44,6 +44,7 @@ dependencies = [
   "matplotlib==3.8.2",
   "modelscope==1.27.0",
   "munch==4.0.0",
+  "nemo-text-processing>=1.1.0; sys_platform == 'linux'",
   "numba==0.58.1",
   "numpy==1.26.2",
   "omegaconf>=2.3.0",

@@ -17,6 +17,7 @@ class TextNormalizer:
     def __init__(self, preferred_language: str | None = None):
         self.zh_normalizer = None
         self.en_normalizer = None
+        self._es_normalizer = None
         self.preferred_language = preferred_language.lower() if preferred_language else None
         self.char_rep_map = {
             "：": ",",
@@ -145,6 +146,36 @@ class TextNormalizer:
             return True
         return False
 
+    _ES_NEMO_CACHE_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "nemo_es_cache")
+
+    def _ensure_es_normalizer(self) -> None:
+        if self._es_normalizer is not None:
+            return
+        from nemo_text_processing.text_normalization.normalize import Normalizer
+        os.makedirs(self._ES_NEMO_CACHE_DIR, exist_ok=True)
+        self._es_normalizer = Normalizer(
+            input_case="cased", lang="es", cache_dir=self._ES_NEMO_CACHE_DIR
+        )
+
+    def normalize_spanish(self, text: str) -> str:
+        if not text:
+            return ""
+        # NeMo handles numbers, currency, time, etc. natively
+        # but _basic_cleanup converts : to , which breaks time patterns.
+        # Run NeMo BEFORE basic cleanup, then clean up remaining chars.
+        text = unicodedata.normalize("NFKC", text)
+        text = re.sub(r"\s+", " ", text).strip()
+        if not text:
+            return ""
+        self._ensure_es_normalizer()
+        try:
+            text = self._es_normalizer.normalize(text, verbose=False)
+        except Exception:
+            print(traceback.format_exc())
+        # Clean up remaining special chars after NeMo normalization
+        text = self._base_cleanup_pattern.sub(lambda x: self.char_rep_map[x.group()], text)
+        return text
+
     def normalize_japanese(self, text: str) -> str:
         text = text.strip()
         if not text:
@@ -195,6 +226,9 @@ class TextNormalizer:
                 return self._basic_cleanup(text_processed)
             result = self._base_cleanup_pattern.sub(lambda x: self.char_rep_map[x.group()], result)
             return result
+
+        if lang == "es":
+            return self.normalize_spanish(text)
 
         return self._basic_cleanup(text)
 
