@@ -99,6 +99,11 @@ class TextNormalizer:
         return has_pinyin
 
     def load(self):
+        # For Spanish-only usage, skip loading zh/en normalizers
+        # (avoids WeTextProcessing/pynini version conflict with nemo-text-processing)
+        if self.preferred_language == "es":
+            self._ensure_es_normalizer()
+            return
         # print(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
         # sys.path.append(model_dir)
         import platform
@@ -160,9 +165,6 @@ class TextNormalizer:
     def normalize_spanish(self, text: str) -> str:
         if not text:
             return ""
-        # NeMo handles numbers, currency, time, etc. natively
-        # but _basic_cleanup converts : to , which breaks time patterns.
-        # Run NeMo BEFORE basic cleanup, then clean up remaining chars.
         text = unicodedata.normalize("NFKC", text)
         text = re.sub(r"\s+", " ", text).strip()
         if not text:
@@ -172,7 +174,6 @@ class TextNormalizer:
             text = self._es_normalizer.normalize(text, verbose=False)
         except Exception:
             print(traceback.format_exc())
-        # Clean up remaining special chars after NeMo normalization
         text = self._base_cleanup_pattern.sub(lambda x: self.char_rep_map[x.group()], text)
         return text
 
